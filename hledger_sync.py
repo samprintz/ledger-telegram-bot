@@ -1,6 +1,10 @@
 import os
 import readline
 import subprocess
+import pickle
+import numpy as np
+import json
+
 
 # Default variables
 
@@ -12,6 +16,9 @@ DEFAULT_LEDGER_ACCOUNT_2 = "Expenses:Default"
 
 LINE_LEN = 48
 INDENT_LEN = 4
+
+MAX_DESC_TOKENS = 10
+DEFAULT_AI_MODEL_PATH = 'model'
 
 
 # Read environment variables
@@ -40,6 +47,12 @@ try:
     LEDGER_ACCOUNT_2 = os.environ['LEDGER_ACCOUNT_2']
 except KeyError:
     LEDGER_ACCOUNT_2 = DEFAULT_LEDGER_ACCOUNT_2
+
+try:
+    AI_MODEL_PATH = os.environ['LEDGER_AI_MODEL_PATH']
+except KeyError:
+    AI_MODEL_PATH = DEFAULT_AI_MODEL_PATH
+
 
 
 class Transaction():
@@ -95,7 +108,8 @@ def update_journal():
 
     edit = input(f'{len(splits)} update(s) from Telegram bot. Edit now [y]? ')
     if edit == 'y' or edit == '':
-        splits = edit_updates(splits)
+        id2label, tokenizer, model = load_ai_model()
+        splits = edit_updates(splits, id2label, tokenizer, model)
     write_updates(LEDGER_FILE, splits)
     move_to_history(splits, LEDGER_UPDATES_FILE, LEDGER_HISTORY_FILE)
     return len(splits)
@@ -117,6 +131,46 @@ def read_updates(path):
             amount = float(split[2])
             splits.append(Transaction(date, desc, amount))
     return splits
+
+
+def load_ai_model():
+    '''
+    Load AI model for account prediction
+    '''
+    import itertools
+    import time
+    import threading
+    import sys
+
+    loading_keras = True
+
+    def animate():
+        for c in itertools.cycle(['|', '/', '-', '\\']):
+            if not loading_keras:
+                break
+            sys.stdout.write('\rLoading AI model ' + c)
+            sys.stdout.flush()
+            time.sleep(0.1)
+        sys.stdout.write('\r                  ')
+
+    t = threading.Thread(target=animate)
+    t.start()
+
+    from keras.models import load_model
+    from keras.preprocessing.text import tokenizer_from_json
+
+    model = load_model(AI_MODEL_PATH)
+
+    with open(f'{AI_MODEL_PATH}/id2label.pkl', 'rb') as f:
+        id2label = pickle.load(f)
+
+    with open(f'{AI_MODEL_PATH}/tokenizer.json') as f:
+        data = json.load(f)
+        tokenizer = tokenizer_from_json(data)
+
+    loading_keras = False
+
+    return id2label, tokenizer, model # TODO extract class
 
 
 def get_accounts():
@@ -142,7 +196,7 @@ def get_autocomplete_options():
     return list(set(accounts))
 
 
-def edit_updates(splits):
+def edit_updates(splits, id2label, tokenizer, model):
     '''
     Dialog to set the accounts of new splits.
     '''
@@ -155,6 +209,15 @@ def edit_updates(splits):
     readline.parse_and_bind('tab: complete')
 
     for split in splits:
+        # predict acc2
+        from keras.utils import pad_sequences
+        text_sequence = tokenizer.texts_to_sequences([split.desc])
+        padded_text_sequence = pad_sequences(text_sequence, padding='post', maxlen=MAX_DESC_TOKENS)
+        prediction = model.predict(padded_text_sequence, verbose=False)
+        predicted_label = np.argmax(prediction)
+        predicted_category = id2label[predicted_label]
+        split.add_acc2(predicted_category)
+
         print(f'\nEdit split "{split.desc}":')
         acc1 = input(f'Account 1 [{split.acc1}]: ')
         if acc1 != '':
