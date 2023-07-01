@@ -1,6 +1,7 @@
 import datetime
 import dateparser
 import os
+import re
 import sys
 from telegram import Bot
 from telegram.ext import Updater, MessageHandler
@@ -97,9 +98,8 @@ def validate_message(inp):
         # validate amount
         try:
             extract_desc_and_amount(data)
-        except ValueError:
-            error = "Use dot for decimals, e.g. 1.23 instead of 1,23"
-            errors.append(error)
+        except ValueError as e:
+            errors.append(str(e))
 
         # validate date
         if len(data) == 3:
@@ -140,13 +140,28 @@ def extract_desc_and_amount(data):
     Extract amount and description from the input data, accept both orders:
     Amount first or description first.
     """
-    # TODO allow decimals
-    try:
-        amount = float(data[0])
+    amount = None
+    desc = None
+
+    pattern = r"(\d+([\.,]\d+)?)"
+
+    # Search for a match in the first line
+    match = re.search(pattern, data[0])
+    if match:
+        amount = float(match.group().replace(",", "."))
         desc = data[1]
-    except ValueError:
-        amount = float(data[1])
-        desc = data[0]
+
+    # If amount is not found in the first line, search in the second line
+    if amount is None:
+        match = re.search(pattern, data[1])
+        if match:
+            amount = float(match.group().replace(",", "."))
+            desc = data[0]
+
+    if amount is None:
+        data_string = "\n".join(data[0:2])
+        raise ValueError(f"No amount found in\n\n{data_string}")
+
     return desc, amount
 
 
