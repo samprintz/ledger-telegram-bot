@@ -1,4 +1,5 @@
 import datetime
+import dateparser
 import os
 import sys
 from telegram import Bot
@@ -69,7 +70,11 @@ def handle_message(update, context):
                 tx = read_data(message_text)
                 username = read_user(update.message.from_user)
                 write_transaction(tx, username)
-                reply_text = f"Added {tx.desc}: {tx.amount} EUR"
+                if tx.date == datetime.date.today():
+                    reply_text = f"Added {tx.desc}: {tx.amount} EUR"
+                else:
+                    date_string = datetime.datetime.strftime(tx.date, "%d.%m.%Y")
+                    reply_text = f"Added {tx.desc}: {tx.amount} EUR ({date_string})"
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 print(f"{timestamp} {reply_text}")
 
@@ -83,16 +88,25 @@ def handle_message(update, context):
 def validate_message(inp):
     errors = []
 
+    # validate message structure
     data = inp.split("\n")
     if len(data) < 2 or len(data) > 3:
         error = "Invalid message. No transaction Added.\n\n Usage:\n2.20\nBread"
         errors.append(error)
     else:
+        # validate amount
         try:
             extract_desc_and_amount(data)
         except ValueError:
             error = "Use dot for decimals, e.g. 1.23 instead of 1,23"
             errors.append(error)
+
+        # validate date
+        if len(data) == 3:
+            date = dateparser.parse(data[2], settings={"DATE_ORDER": "DMY"})
+            if not date:
+                error = f'Invalid date: "{data[2]}"'
+                errors.append(error)
 
     return errors
 
@@ -103,12 +117,9 @@ def read_data(inp):
     """
     data = inp.split("\n")
     desc, amount = extract_desc_and_amount(data)
-    if len(data) == 2:
-        date = datetime.date.today()
-    else:  # 3 lines -> date given
-        # TODO Read date from input
-        date = datetime.date.today()
-
+    date = datetime.date.today()
+    if len(data) == 3:  # 3 lines -> date specified
+        date = dateparser.parse(data[2], settings={"DATE_ORDER": "DMY"}).date()
     return Transaction(date, desc, amount)
 
 
