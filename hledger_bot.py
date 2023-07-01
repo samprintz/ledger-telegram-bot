@@ -22,6 +22,11 @@ try:
 except KeyError:
     LEDGER_UPDATES_FILE = DEFAULT_LEDGER_UPDATES_FILE
 
+try:
+    LEDGER_MAIN_TELEGRAM_USER_ID = os.environ['LEDGER_MAIN_TELEGRAM_USER_ID']
+except KeyError:
+    LEDGER_MAIN_TELEGRAM_USER_ID = None
+
 
 def add_tx(update, context):
     '''
@@ -29,7 +34,7 @@ def add_tx(update, context):
     '''
     try:
         date, desc, amount = read_data(update.message.text)
-        user_id, username = read_user(update.message.from_user)
+        username = read_user(update.message.from_user)
         write_entry(date, desc, amount, username)
         update.message.reply_text(f'Added {desc}: {amount} EUR')
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -58,9 +63,11 @@ def read_user(inp):
     Read information about the user.
     '''
     user_id = inp.id
-    username = inp.username
+    username = None
+    if not str(user_id) == str(LEDGER_MAIN_TELEGRAM_USER_ID):
+        username = inp.first_name # inp.username
 
-    return user_id, username
+    return username
 
 
 def extract_desc_and_amount(data):
@@ -83,7 +90,10 @@ def write_entry(date, desc, amount, username):
     for transfer to local machine.
     '''
     with open(LEDGER_UPDATES_FILE, "a") as f:
-        f.write(f'{date}\t{desc} ({username})\t{amount}\n')
+        if username:
+            f.write(f'{date}\t{desc} ({username})\t{amount}\n')
+        else:
+            f.write(f'{date}\t{desc}\t{amount}\n')
 
 
 updater = Updater(TOKEN)
