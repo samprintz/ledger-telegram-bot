@@ -30,20 +30,71 @@ except KeyError:
     LEDGER_MAIN_TELEGRAM_USER_ID = None
 
 
-def add_tx(update, context):
+class Transaction:
     """
-    Telegram event handler to add a transaction.
+    Representing an accounting transaction.
     """
+
+    def __init__(self, date, desc, amount):
+        self.date = date
+        self.desc = desc
+        self.amount = amount
+
+
+def handle_message(update, context):
+    """
+    Telegram event handler to process a user message.
+    """
+    message_text = update.message.text
+    reply_text = ""
+
     try:
-        date, desc, amount = read_data(update.message.text)
-        username = read_user(update.message.from_user)
-        write_entry(date, desc, amount, username)
-        update.message.reply_text(f"Added {desc}: {amount} EUR")
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"{timestamp} Added {desc}: {amount} EUR")
+        if message_text.startswith("/"):
+            if message_text == "/start":
+                reply_text = "Welcome to hledger Telegram bot!"
+            elif message_text == "/undo":
+                tx = undo_last_transaction()
+                reply_text = f"Deleted last transaction:\n{tx}"
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                tx_string = " ".join(tx.strip().split("\t"))
+                print(f"{timestamp} Deleted last transaction: {tx_string}")
+            else:
+                reply_text = f"Unknown command '{message_text}'\nAvailable commands:\n/undo  Undo last transactions"
+        else:
+            errors = validate_message(message_text)
+            if len(errors):
+                for error in errors:
+                    reply_text = error + "\n"
+            else:
+                tx = read_data(message_text)
+                username = read_user(update.message.from_user)
+                write_transaction(tx, username)
+                reply_text = f"Added {tx.desc}: {tx.amount} EUR"
+                timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                print(f"{timestamp} {reply_text}")
+
+        update.message.reply_text(reply_text)
+
     except Exception as e:
         update.message.reply_text(f"Failed: {str(e)}")
         raise e
+
+
+def validate_message(inp):
+    errors = []
+
+    data = inp.split("\n")
+    if len(data) < 2 or len(data) > 3:
+        error = "Invalid message. No transaction Added.\n\n Usage:\n2.20\nBread"
+        errors.append(error)
+    else:
+        try:
+            extract_desc_and_amount(data)
+        except ValueError:
+            error = "Use dot for decimals, e.g. 1.23 instead of 1,23"
+            errors.append(error)
+
+    return errors
 
 
 def read_data(inp):
@@ -58,7 +109,7 @@ def read_data(inp):
         # TODO Read date from input
         date = datetime.date.today()
 
-    return date, desc, amount
+    return Transaction(date, desc, amount)
 
 
 def read_user(inp):
@@ -78,6 +129,7 @@ def extract_desc_and_amount(data):
     Extract amount and description from the input data, accept both orders:
     Amount first or description first.
     """
+    # TODO allow decimals
     try:
         amount = float(data[0])
         desc = data[1]
@@ -87,21 +139,33 @@ def extract_desc_and_amount(data):
     return desc, amount
 
 
-def write_entry(date, desc, amount, username):
+def write_transaction(tx, username):
     """
     Write data to (temporary) text file. Not yet in hledger format, but just
     for transfer to local machine.
     """
     with open(LEDGER_UPDATES_FILE, "a") as f:
         if username:
-            f.write(f"{date}\t{desc} ({username})\t{amount}\n")
+            f.write(f"{tx.date}\t{tx.desc} ({username})\t{tx.amount}\n")
         else:
-            f.write(f"{date}\t{desc}\t{amount}\n")
+            f.write(f"{tx.date}\t{tx.desc}\t{tx.amount}\n")
+
+
+def undo_last_transaction():
+    """
+    Delete the last transaction from the text file.
+    """
+    # TODO prevent deletion of transactions also of other users?
+    with open(LEDGER_UPDATES_FILE, "r") as file:
+        lines = file.readlines()
+    with open(LEDGER_UPDATES_FILE, "w") as file:
+        file.writelines(lines[:-1])
+    return lines[-1]
 
 
 updater = Updater(TOKEN)
 
-updater.dispatcher.add_handler(MessageHandler(Filters.text, add_tx))
+updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
 
 updater.start_polling()
 updater.idle()
