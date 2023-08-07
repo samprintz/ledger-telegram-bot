@@ -143,7 +143,7 @@ def extract_desc_and_amount(data):
     amount = None
     desc = None
 
-    pattern = r"(\d+([\.,]\d+)?)"
+    pattern = r"(-?\d+([\.,]\d+)?)"
 
     # Search for a match in the first line
     match = re.search(pattern, data[0])
