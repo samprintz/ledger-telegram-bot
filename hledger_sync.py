@@ -105,12 +105,14 @@ def update_journal():
         return 0
 
     edit = input(f"{len(splits)} update(s) from Telegram bot. Edit now [y]? ")
+
     if edit == "y" or edit == "":
         id2label, tokenizer, model = load_ai_model()
         splits = edit_updates(splits, id2label, tokenizer, model)
-    write_updates(LEDGER_FILE, splits)
-    move_to_history(splits, LEDGER_UPDATES_FILE, LEDGER_HISTORY_FILE)
-    return len(splits)
+        write_updates(LEDGER_FILE, splits)
+        move_to_history(splits, LEDGER_UPDATES_FILE, LEDGER_HISTORY_FILE)
+        split_count = len(splits)
+        print(f"\nAdded {split_count} split(s)\n")
 
 
 def read_updates(path):
@@ -279,7 +281,6 @@ def move_to_history(splits, path_updates, path_history):
 
 
 if os.path.isfile(LEDGER_UPDATES_FILE):
-    split_count = update_journal()
-    print(f"\nAdded {split_count} split(s)\n")
+    update_journal()
 else:
     print("Sync with Telegram bot: No updates\n")
