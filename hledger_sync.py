@@ -159,7 +159,7 @@ def load_ai_model():
     from keras.models import load_model
     from keras_preprocessing.text import tokenizer_from_json
 
-    model = load_model(AI_MODEL_PATH)
+    model = load_model(f"{AI_MODEL_PATH}/model.keras")
 
     with open(f"{AI_MODEL_PATH}/id2label.pkl", "rb") as f:
         id2label = pickle.load(f)
