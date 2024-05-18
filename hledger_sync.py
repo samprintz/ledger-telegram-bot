@@ -157,7 +157,7 @@ def load_ai_model():
     t.start()
 
     from keras.models import load_model
-    from keras.preprocessing.text import tokenizer_from_json
+    from keras_preprocessing.text import tokenizer_from_json
 
     model = load_model(AI_MODEL_PATH)
 
