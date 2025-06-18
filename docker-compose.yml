@@ -1,0 +1,14 @@
+services:
+  hledger-bot:
+    build:
+      context: ./src/hledger-bot
+    container_name: hledger-bot
+    restart: unless-stopped
+    environment:
+      - LEDGER_BOT_TOKEN=${LEDGER_BOT_TOKEN}
+      - LEDGER_UPDATES_FILE=${LEDGER_UPDATES_FILE}
+      - LEDGER_HISTORY_FILE=${LEDGER_HISTORY_FILE}
+      - LEDGER_MAIN_TELEGRAM_USER_ID=${LEDGER_MAIN_TELEGRAM_USER_ID}
+    volumes:
+      - ./data/hledger:/mnt/hledger
+

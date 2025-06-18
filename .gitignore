@@ -1,4 +1,2 @@
-data
-sync
-.ipynb_checkpoints/
 start.sh
+.env
