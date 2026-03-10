@@ -9,7 +9,7 @@ from telegram.ext.filters import Filters
 
 # Default variables
 
-DEFAULT_LEDGER_UPDATES_FILE = "~/.hledger-sync/new.tsv"
+DEFAULT_LEDGER_UPDATES_FILE = "~/.ledger-sync/new.tsv"
 
 
 # Read environment variables
@@ -53,7 +53,7 @@ def handle_message(update, context):
     try:
         if message_text.startswith("/"):
             if message_text == "/start":
-                reply_text = "Welcome to hledger Telegram bot!"
+                reply_text = "Welcome to Ledger Telegram Bot!"
             elif message_text == "/undo":
                 tx = undo_last_transaction()
                 reply_text = f"Deleted last transaction:\n{tx}"
@@ -167,8 +167,7 @@ def extract_desc_and_amount(data):
 
 def write_transaction(tx, username):
     """
-    Write data to (temporary) text file. Not yet in hledger format, but just
-    for transfer to local machine.
+    Write data to (temporary) text file.
     """
     with open(LEDGER_UPDATES_FILE, "a") as f:
         if username:

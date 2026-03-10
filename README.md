@@ -1,61 +1,66 @@
-# Telegram Bot for hledger
+# Ledger Telegram Bot
 
-This is a manual for creating a Telegram bot
-that receives new accounting transactions via message
-and synchronizes them to a local journal of the plain text accounting software [hledger](https://hledger.org/).
+A Telegram bot that receives accounting transactions via message
+and writes them to a TSV file
+for use with plain text accounting software like [hledger](https://hledger.org/)
+or [Beancount](https://github.com/beancount/beancount).
 
-For security reasons, the main journal of hledger is store locally, not on the server.
-Still, the Telegram bot is hosted on the server for the sake of availability.
+## How It Works
 
-## Idea
-
-The Telegram bot hosted on the server
-receives new accounting transactions and writes them to a file on the server,
-say <tt>server:\~/.hledger-sync/new.tsv</tt>.
-An arbitrary synchronization software, e.g. [Syncthing](https://syncthing.net/),
-is synchronizing the file to local file,
-i.e. <tt>server:\~/.hledger-sync/</tt> to <tt>local:\~/.hledger-sync/</tt>.
-When running hledger (on the local machine),
-new transactions in <tt>local:\~/.hledger-sync/new.tsv</tt>
-are appended to <tt>local:\~/.hledger/hledger.journal</tt>.
-Before the new transactions are appended,
-the default [accounts](https://hledger.org/accounting.html) (see below) can be edited.
+The Telegram bot receives new accounting transactions
+and writes them to a file (e.g., `/mnt/ledger/new.tsv`).
+You can then use a synchronization tool
+like [Syncthing](https://syncthing.net/)
+to sync this file to your local machine
+and import the transactions into your accounting software.
 
 ## Installation
 
-### Create Telegram bot
+### Create Telegram Bot
 
 1. See https://core.telegram.org/bots#creating-a-new-bot
-2. Export the token as environment variable at the server.
+2. Copy the token for use in the environment variables.
 
-```bash
-export LEDGER_BOT_TOKEN="<TOKEN>"
+### Run with Docker
+
+1. Copy `.env.example` to `.env` and fill in the values
+2. Run `docker compose up -d`
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `LEDGER_BOT_TOKEN` | Telegram bot token | Yes |
+| `LEDGER_UPDATES_FILE` | Path to TSV output file | No (default: `~/.ledger-sync/new.tsv`) |
+| `LEDGER_MAIN_TELEGRAM_USER_ID` | Main user ID (others get name tagged in transactions) | No |
+
+## Usage
+
+Send a message to the bot with the following format:
+
+```
+<amount>
+<description>
+[date]
 ```
 
-### Setup server
+Or:
 
-1. (Install a current python version (e.g. 3.9, see [here](https://tecadmin.net/how-to-install-python-3-9-on-debian-9/)))
-2. Create python virtual environment (e.g. <code>python3 -m venv ~/.venv/python39-telegram</code>) and activate it
-3. Install <tt>python-telegram-bot</tt> with <tt>pip</tt>
-4. Export an environment variable called <tt>LEDGER_UPDATES_FILE</tt> to change the default (<tt>\~/.hledger-sync/new.tsv</tt>)
-5. Run the Telegram bot with <code>python hledger_bot.py</code>
-6. Run Syncthing (e.g. with docker, see [here](https://hub.docker.com/r/syncthing/syncthing) or [here](https://github.com/syncthing/syncthing/blob/main/README-Docker.md))
-
-### Setup local device
-
-1. Run Syncthing to synchronize <tt>local:~/.hledger-sync/</tt> with <tt>server:~/.hledger-sync/</tt>
-2. Add to <tt>.bashrc</tt> an alias to grab changes when running ledger:
-
-```bash
-alias hledger='python hledger_sync.py; hledger'
+```
+<description>
+<amount>
+[date]
 ```
 
-3. Export environment variables to modify the default file paths and default accounts:
+The date is optional and defaults to today. Examples:
 
-File | Variable | Default
----- | -------- | -------
-[hledger journal](https://hledger.org/hledger.html#environment) | <tt>LEDGER_FILE</tt> | <tt>\~/.hledger.journal</tt>
-File with updates | <tt>LEDGER_UPDATES_FILE</tt> | <tt>\~/.hledger-sync/new.tsv</tt>
-History of updates (for preservability) | <tt>LEDGER_HISTORY_FILE</tt> | <tt>\~/.hledger-sync/history.tsv</tt>
-Default account 1 | <tt>LEDGER_ACCOUNT_1</tt> | <tt>Assets:Cash</tt>
-Default account 2 | <tt>LEDGER_ACCOUNT_2</tt> | <tt>Expenses:Default</tt>
+```
+12.50
+Coffee
+```
+
+```
+Groceries
+45,99
+yesterday
+```
