@@ -6,7 +6,7 @@ services:
     restart: unless-stopped
     environment:
       - LEDGER_BOT_TOKEN=${LEDGER_BOT_TOKEN}
-      - LEDGER_UPDATES_FILE=${LEDGER_UPDATES_FILE}
+      - LEDGER_TRANSACTION_FILE_DIR=${LEDGER_TRANSACTION_FILE_DIR}
       - LEDGER_MAIN_TELEGRAM_USER_ID=${LEDGER_MAIN_TELEGRAM_USER_ID}
     volumes:
-      - ./data/ledger:/mnt/ledger
+      - ./data/transactions:/data/transactions

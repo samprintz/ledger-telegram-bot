@@ -1,15 +1,30 @@
 import datetime
-import dateparser
+import glob
 import os
 import re
 import sys
-from telegram import Bot
+
+import dateparser
 from telegram.ext import Updater, MessageHandler
 from telegram.ext.filters import Filters
 
 # Default variables
 
-DEFAULT_LEDGER_UPDATES_FILE = "~/.ledger-sync/new.tsv"
+DEFAULT_TRANSACTION_FILE_DIR = "/data/transactions"
+TRANSACTION_FILE_NAME_PATTERN = "*-ledger-telegram-bot.tsv"
+
+
+def create_get_transaction_file(directory):
+    expanded_dir = os.path.expanduser(directory)
+    pattern = os.path.join(expanded_dir, TRANSACTION_FILE_NAME_PATTERN)
+    matches = glob.glob(pattern)
+
+    if matches:
+        return matches[0]
+
+    os.makedirs(expanded_dir, exist_ok=True)
+    today = datetime.date.today().strftime("%Y-%m-%d")
+    return os.path.join(expanded_dir, f"{today}-ledger-telegram-bot.tsv")
 
 
 # Read environment variables
@@ -21,10 +36,8 @@ except KeyError:
         "Please export environment variable LEDGER_BOT_TOKEN=<Token ID of Telegram bot> and run again"
     )
 
-try:
-    LEDGER_UPDATES_FILE = os.environ["LEDGER_UPDATES_FILE"]
-except KeyError:
-    LEDGER_UPDATES_FILE = DEFAULT_LEDGER_UPDATES_FILE
+TRANSACTION_FILE_DIR = os.environ.get("LEDGER_TRANSACTION_FILE_DIR", DEFAULT_TRANSACTION_FILE_DIR)
+TRANSACTION_FILE = create_get_transaction_file(TRANSACTION_FILE_DIR)
 
 try:
     LEDGER_MAIN_TELEGRAM_USER_ID = os.environ["LEDGER_MAIN_TELEGRAM_USER_ID"]
@@ -169,7 +182,7 @@ def write_transaction(tx, username):
     """
     Write data to (temporary) text file.
     """
-    with open(LEDGER_UPDATES_FILE, "a") as f:
+    with open(TRANSACTION_FILE, "a") as f:
         if username:
             f.write(f"{tx.date}\t{tx.desc} ({username})\t{tx.amount}\n")
         else:
@@ -181,9 +194,9 @@ def undo_last_transaction():
     Delete the last transaction from the text file.
     """
     # TODO prevent deletion of transactions also of other users?
-    with open(LEDGER_UPDATES_FILE, "r") as file:
+    with open(TRANSACTION_FILE, "r") as file:
         lines = file.readlines()
-    with open(LEDGER_UPDATES_FILE, "w") as file:
+    with open(TRANSACTION_FILE, "w") as file:
         file.writelines(lines[:-1])
     return lines[-1]
 

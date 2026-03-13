@@ -31,7 +31,7 @@ and import the transactions into your accounting software.
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `LEDGER_BOT_TOKEN` | Telegram bot token | Yes |
-| `LEDGER_UPDATES_FILE` | Path to TSV output file | No (default: `~/.ledger-sync/new.tsv`) |
+| `LEDGER_TRANSACTION_FILE_DIR` | Path to transaction output files | No (default: `/data/transactions`) |
 | `LEDGER_MAIN_TELEGRAM_USER_ID` | Main user ID (others get name tagged in transactions) | No |
 
 ## Usage
