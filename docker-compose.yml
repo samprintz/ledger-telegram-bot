@@ -4,6 +4,7 @@ services:
       context: ./src/ledger-telegram-bot
     container_name: ledger-telegram-bot
     restart: unless-stopped
+    user: "${UID}:${GID}"
     environment:
       - LEDGER_BOT_TOKEN=${LEDGER_BOT_TOKEN}
       - LEDGER_TRANSACTION_FILE_DIR=${LEDGER_TRANSACTION_FILE_DIR}
