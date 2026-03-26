@@ -1,7 +1,7 @@
 services:
   ledger-telegram-bot:
     build:
-      context: ./src/ledger-telegram-bot
+      context: ./src
     container_name: ledger-telegram-bot
     restart: unless-stopped
     user: "${UID}:${GID}"
