@@ -13,7 +13,8 @@ Continue to maintain `hledger_bot.py` in this repository.
 ## Rationale
 
 - The synchronization functionality is not related to the Telegram bot functionality.
-- Both functionalities share a clean interface, i.e. the CSV file format, so they can be easily separated.
+- Both functionalities share a clean interface,
+  i.e. the CSV file format, so they can be easily separated.
 
 ## Consequences
 
