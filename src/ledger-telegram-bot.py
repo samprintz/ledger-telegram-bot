@@ -22,7 +22,7 @@ def create_get_transaction_file(directory):
     matches = glob.glob(pattern)
 
     if matches:
-        return matches[0]
+        return max(matches)
 
     os.makedirs(expanded_dir, exist_ok=True)
     today = datetime.date.today().strftime("%Y-%m-%d")
