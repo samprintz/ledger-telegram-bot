@@ -5,13 +5,15 @@ import re
 import sys
 
 import dateparser
-from telegram.ext import Updater, MessageHandler
-from telegram.ext.filters import Filters
 
 # Default variables
 
 DEFAULT_TRANSACTION_FILE_DIR = "/data/transactions"
 TRANSACTION_FILE_NAME_PATTERN = "*-ledger-telegram-bot.tsv"
+
+TRANSACTION_FILE_DIR = os.environ.get(
+    "LEDGER_TRANSACTION_FILE_DIR", DEFAULT_TRANSACTION_FILE_DIR)
+LEDGER_MAIN_TELEGRAM_USER_ID = os.environ.get("LEDGER_MAIN_TELEGRAM_USER_ID")
 
 
 def create_get_transaction_file(directory):
@@ -25,24 +27,6 @@ def create_get_transaction_file(directory):
     os.makedirs(expanded_dir, exist_ok=True)
     today = datetime.date.today().strftime("%Y-%m-%d")
     return os.path.join(expanded_dir, f"{today}-ledger-telegram-bot.tsv")
-
-
-# Read environment variables
-
-try:
-    TOKEN = os.environ["LEDGER_BOT_TOKEN"]
-except KeyError:
-    sys.exit(
-        "Please export environment variable LEDGER_BOT_TOKEN=<Token ID of Telegram bot> and run again"
-    )
-
-TRANSACTION_FILE_DIR = os.environ.get("LEDGER_TRANSACTION_FILE_DIR", DEFAULT_TRANSACTION_FILE_DIR)
-TRANSACTION_FILE = create_get_transaction_file(TRANSACTION_FILE_DIR)
-
-try:
-    LEDGER_MAIN_TELEGRAM_USER_ID = os.environ["LEDGER_MAIN_TELEGRAM_USER_ID"]
-except KeyError:
-    LEDGER_MAIN_TELEGRAM_USER_ID = None
 
 
 class Transaction:
@@ -68,13 +52,16 @@ def handle_message(update, context):
             if message_text == "/start":
                 reply_text = "Welcome to Ledger Telegram Bot!"
             elif message_text == "/undo":
-                tx = undo_last_transaction()
+                tx = undo_last_transaction(TRANSACTION_FILE_DIR)
                 reply_text = f"Deleted last transaction:\n{tx}"
                 timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 tx_string = " ".join(tx.strip().split("\t"))
                 print(f"{timestamp} Deleted last transaction: {tx_string}")
             else:
-                reply_text = f"Unknown command '{message_text}'\nAvailable commands:\n/undo  Undo last transactions"
+                reply_text = (
+                    f"Unknown command '{message_text}'\n"
+                    f"Available commands:\n/undo  Undo last transactions"
+                )
         else:
             errors = validate_message(message_text)
             if len(errors):
@@ -83,7 +70,7 @@ def handle_message(update, context):
             else:
                 tx = read_data(message_text)
                 username = read_user(update.message.from_user)
-                write_transaction(tx, username)
+                write_transaction(tx, username, TRANSACTION_FILE_DIR)
                 if tx.date == datetime.date.today():
                     reply_text = f"Added {tx.desc}: {tx.amount} EUR"
                 else:
@@ -178,32 +165,44 @@ def extract_desc_and_amount(data):
     return desc, amount
 
 
-def write_transaction(tx, username):
+def write_transaction(tx, username, directory):
     """
     Write data to (temporary) text file.
     """
-    with open(TRANSACTION_FILE, "a") as f:
+    transaction_file = create_get_transaction_file(directory)
+    with open(transaction_file, "a") as f:
         if username:
             f.write(f"{tx.date}\t{tx.desc} ({username})\t{tx.amount}\n")
         else:
             f.write(f"{tx.date}\t{tx.desc}\t{tx.amount}\n")
 
 
-def undo_last_transaction():
+def undo_last_transaction(directory):
     """
     Delete the last transaction from the text file.
     """
     # TODO prevent deletion of transactions also of other users?
-    with open(TRANSACTION_FILE, "r") as file:
+    transaction_file = create_get_transaction_file(directory)
+    with open(transaction_file, "r") as file:
         lines = file.readlines()
-    with open(TRANSACTION_FILE, "w") as file:
+    with open(transaction_file, "w") as file:
         file.writelines(lines[:-1])
     return lines[-1]
 
 
-updater = Updater(TOKEN)
+if __name__ == "__main__":
+    from telegram.ext import Updater, MessageHandler
+    from telegram.ext.filters import Filters
 
-updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
+    try:
+        TOKEN = os.environ["LEDGER_BOT_TOKEN"]
+    except KeyError:
+        sys.exit(
+            "Please export environment variable LEDGER_BOT_TOKEN="
+            "<Token ID of Telegram bot> and run again"
+        )
 
-updater.start_polling()
-updater.idle()
+    updater = Updater(TOKEN)
+    updater.dispatcher.add_handler(MessageHandler(Filters.text, handle_message))
+    updater.start_polling()
+    updater.idle()
